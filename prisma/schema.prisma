@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  wallets      Wallet[]
+  transactions Transaction[]
+  createdAt    DateTime  @default(now())
+}
+
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  token     String
+  balance   Decimal  @default(0.000000000000000000) @db.Decimal(36, 18)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, token])
+}
+
+model Transaction {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  status    String   @default("COMPLETED")
+  movements LedgerMovement[]
+  createdAt DateTime @default(now())
+}
+
+model LedgerMovement {
+  id            String      @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  type          String
+  token         String
+  amount        Decimal     @db.Decimal(36, 18)
+  oldBalance    Decimal     @db.Decimal(36, 18)
+  newBalance    Decimal     @db.Decimal(36, 18)
+  createdAt     DateTime    @default(now())
+}
+
+model ProcessedWebhook {
+  id             String   @id @default(uuid())
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+}
