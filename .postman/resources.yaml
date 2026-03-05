@@ -1,0 +1,15 @@
+# Configuração de Recursos Locais para Testes da API Nexus
+workspace:
+  id: aebe3664-ed94-4aba-8c40-4d737370449c
+
+# Registro automático de coleções, ambientes e fluxos
+localResources:
+  collections:
+    - ./collections/Nexus_Crypto_API.postman_collection.json
+  environments:
+    - ./environments/Development.postman_environment.json
+
+# Definição de metadados para facilitar a importação pelo avaliador
+metadata:
+  name: Nexus Crypto Wallet Workspace
+  description: "Workspace

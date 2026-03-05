@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: nexus_ledger_db
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexuspassword
+      POSTGRES_DB: nexus_ledger
+    ports:
+      - "5433:5432"
+    volumes:
+      - nexus_postgres_data:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  nexus_postgres_data:

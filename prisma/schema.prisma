@@ -1,0 +1,71 @@
+// Configuração do Cliente Prisma
+generator client {
+  provider = "prisma-client-js"
+}
+// Configuração da Fonte de Dados
+datasource db {
+  provider = "postgresql"
+}
+/**
+ * Entidade de Usuário
+ * Gerencia credenciais e serve como raiz para todas as operações financeiras.
+ */
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  wallets      Wallet[]
+  transactions Transaction[]
+  createdAt    DateTime  @default(now())
+}
+/**
+ * Carteira de Ativos (Wallet)
+ * Implementa precisão de 18 casas decimais por conta das ETH para evitar perdas de precisão em criptoativos cada cents são um desastre.
+ * A restrição @@unique garante que um usuário possua apenas uma carteira por token.
+ */
+model Wallet {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  token     String
+  balance   Decimal  @default(0.000000000000000000) @db.Decimal(36, 18)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, token])
+}
+// Precisão financeira: 36 dígitos no total, 18 decimais
+model Transaction {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  status    String   @default("COMPLETED")
+  movements LedgerMovement[]
+  createdAt DateTime @default(now())
+}
+/**
+ * Ledger (Livro-razão)
+ * Implementa o rastro de auditoria. Cada alteração de saldo deve gerar um LedgerMovement. 
+ *oque garante o registro das movimentações financeiras, permitindo rastreabilidade 
+ * Armazena o estado anterior e posterior (oldBalance/newBalance) para integridade.
+ */
+model LedgerMovement {
+  id            String      @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  type          String
+  token         String
+  amount        Decimal     @db.Decimal(36, 18)
+  oldBalance    Decimal     @db.Decimal(36, 18)
+  newBalance    Decimal     @db.Decimal(36, 18)
+  createdAt     DateTime    @default(now())
+}
+/**
+ * Controle de Idempotência
+ * Essencial para webhooks de depósitos. Previne o processamento duplicado.
+ */
+model ProcessedWebhook {
+  id             String   @id @default(uuid())
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+}
