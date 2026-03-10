@@ -149,6 +149,16 @@ ProcessedWebhook
 - Listagem de movimentos detalhados por transação
 - Paginação configurável (?page=1&limit=10, máx. 50 por página)
 
+**Validação de Dados (Zod)**
+- Schema de validação em todos os endpoints
+- Erros retornam mensagens descritivas por campo
+- Paginação com limite máximo
+- Enum de tokens validado — apenas BRL, BTC e ETH são aceitos
+
+**Saque**
+- Validação de saldo antes de debitar
+- Registro no ledger com tipo WITHDRAWAL
+- Transferência simulada (mock)
 
 ## Como Executar Localmente
 
