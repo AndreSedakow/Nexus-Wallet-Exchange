@@ -6,10 +6,10 @@ import { processDeposit } from '../services/ledgerService';
  * Rotas de Webhook para Depósitos.
  * Gerencia as entradas de capital externo na plataforma.
  * Implementa validação rigorosa e proteção contra duplicidade via chaves de idempotência
- *  tão importante quanto funcional é a validação e proteção.
+ * tão importante quanto funcional é a validação e proteção.
  */
 export async function depositRoutes(app: FastifyInstance) {
-  
+
   /**
    * Schema de validação para a requisição de depósito.
    * Definido fora do handler para melhor legibilidade e performance.
@@ -18,7 +18,7 @@ export async function depositRoutes(app: FastifyInstance) {
     userId: z.string().uuid({ message: "O ID do usuário deve ser um UUID válido." }),
     token: z.enum(['BRL', 'BTC', 'ETH'], { message: "O token informado não é suportado pela plataforma." }),
     amount: z.string().refine(
-      (val) => !isNaN(Number(val)) && Number(val) > 0, 
+      (val) => !isNaN(Number(val)) && Number(val) > 0,
       "O valor do depósito deve ser uma representação numérica positiva."
     ),
     idempotencyKey: z.string().min(10, "A chave de idempotência é obrigatória para garantir a segurança da operação.")
@@ -28,17 +28,52 @@ export async function depositRoutes(app: FastifyInstance) {
    * POST /deposit
    * Endpoint de integração para processamento de depósitos via webhook.
    */
-  app.post('/deposit', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/deposit', {
+    schema: {
+      tags: ['Webhooks'],
+      summary: 'Depósito via webhook',
+      description: `Simula um gateway de pagamento externo notificando um depósito.\n\n**Idempotência:** Enviar a mesma \`idempotencyKey\` duas vezes não gera depósito duplicado — retorna \`SUCCESS_IDEMPOTENT\`.\n\n**Tokens suportados:** BRL, BTC, ETH`,
+      body: {
+        type: 'object',
+        required: ['userId', 'token', 'amount', 'idempotencyKey'],
+        properties: {
+          userId: { type: 'string', format: 'uuid' },
+          token: { type: 'string', enum: ['BRL', 'BTC', 'ETH'] },
+          amount: { type: 'string' },
+          idempotencyKey: { type: 'string', minLength: 10 },
+        },
+      },
+      response: {
+        200: {
+          description: 'Depósito processado com sucesso',
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            newBalance: { type: 'string' },
+            transactionId: { type: 'string', format: 'uuid' },
+          },
+        },
+        400: {
+          description: 'Dados inválidos',
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            details: { type: 'array' },
+          },
+        },
+      },
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      //  Validação de Schema (Garante integridade dos dados antes de iniciar a transação)
+      // Validação de Schema (Garante integridade dos dados antes de iniciar a transação)
       const data = depositSchema.parse(request.body);
-      
+
       // Execução da lógica de negócio via Service
-      //  (Separa a camada de aplicação da lógica de domínio, facilitando testes e manutenção)
+      // (Separa a camada de aplicação da lógica de domínio, facilitando testes e manutenção)
       const result = await processDeposit(
-        data.userId, 
-        data.token, 
-        data.amount, 
+        data.userId,
+        data.token,
+        data.amount,
         data.idempotencyKey
       );
 
@@ -48,16 +83,16 @@ export async function depositRoutes(app: FastifyInstance) {
     } catch (error: any) {
       // Tratamento de erros de validação (Zod)
       if (error instanceof z.ZodError) {
-        return reply.status(400).send({ 
-          error: "Falha na validação dos dados", 
-          details: error.issues.map(i => ({ path: i.path, message: i.message })) 
+        return reply.status(400).send({
+          error: "Falha na validação dos dados",
+          details: error.issues.map(i => ({ path: i.path, message: i.message }))
         });
       }
 
       // Tratamento de Idempotência (Caso o webhook já tenha sido processado)
-      // Nota: Retornamos 200 para evitar que o serviço de origem continue disparando retries inviaveis.
+      // Nota: Retornamos 200 para evitar que o serviço de origem continue disparando retries.
       if (error.message === "Webhook já processado.") {
-        return reply.status(200).send({ 
+        return reply.status(200).send({
           message: "Operação já confirmada anteriormente.",
           status: "SUCCESS_IDEMPOTENT"
         });

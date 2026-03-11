@@ -5,16 +5,57 @@ import { AuthService } from '../services/authService';
 const authService = new AuthService();
 
 /**
- * Rotas de Autenticação e Gestão de Identidade.
- * Este módulo lida com o ciclo de vida do usuário: registro e geração de tokens de acesso.
+ * Rotas de Autenticação 
+ * Ciclo de usuário: registro e geração de tokens de acesso.
  */
 export async function authRoutes(app: FastifyInstance) {
-  
+
   /**
+   * POST /register
    * Cria um novo usuário no sistema.
-   * A senha é processada via hash (Bcrypt) na camada de serviço para garantir segurança em repouso.
+   * A senha é processada via hash (Bcrypt) 
    */
-  app.post('/register', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/register', {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Cadastro de usuário',
+      description: 'Cria um novo usuário e inicializa carteiras com saldo zero para BRL, BTC e ETH. A senha é armazenada com hash Bcrypt.',
+      body: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string', minLength: 6 },
+        },
+      },
+      response: {
+        201: {
+          description: 'Usuário criado com sucesso',
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            email: { type: 'string' },
+            message: { type: 'string' },
+          },
+        },
+        400: {
+          description: 'Dados inválidos',
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            details: { type: 'array' },
+          },
+        },
+        409: {
+          description: 'E-mail já cadastrado',
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     const registerSchema = z.object({
       email: z.string().email({ message: "Formato de e-mail inválido." }),
       password: z.string().min(6, { message: "A senha deve ter no mínimo 6 caracteres." }),
@@ -22,12 +63,11 @@ export async function authRoutes(app: FastifyInstance) {
 
     try {
       const { email, password } = registerSchema.parse(request.body);
-      
       const user = await authService.register(email, password);
-      
-      // Retornamos apenas dados não sensíveis 
-      return reply.status(201).send({ 
-        id: user.id, 
+
+      // Retornamos apenas dados não sensíveis
+      return reply.status(201).send({
+        id: user.id,
         email: user.email,
         message: "Usuário criado com sucesso."
       });
@@ -48,9 +88,46 @@ export async function authRoutes(app: FastifyInstance) {
 
   /**
    * POST /login
-   * Valida credenciais e emite um token JWT para acesso às rotas protegidas.
+   * Valida credenciais e emite um token JWT para acesso às rotas 
    */
-  app.post('/login', async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post('/login', {
+    schema: {
+      tags: ['Auth'],
+      summary: 'Login',
+      description: 'Autentica o usuário e retorna um JWT. Copie o token e clique em **Authorize** (canto superior direito) para acessar os endpoints protegidos.',
+      body: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string' },
+        },
+      },
+      response: {
+        200: {
+          description: 'Login realizado com sucesso',
+          type: 'object',
+          properties: {
+            token: { type: 'string', description: 'JWT para autenticação — validade de 7 dias' },
+            user: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', format: 'uuid' },
+                email: { type: 'string' },
+              },
+            },
+          },
+        },
+        401: {
+          description: 'Credenciais inválidas',
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+          },
+        },
+      },
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
     const loginSchema = z.object({
       email: z.string().email(),
       password: z.string(),
@@ -58,7 +135,6 @@ export async function authRoutes(app: FastifyInstance) {
 
     try {
       const { email, password } = loginSchema.parse(request.body);
-      
       const user = await authService.validateUser(email, password);
 
       if (!user) {
@@ -68,16 +144,16 @@ export async function authRoutes(app: FastifyInstance) {
       /**
        * Geração de Token JWT
        * O payload contém o ID do usuário para identificação segura no middleware de autenticação.
-       * Tempo de expiração configurado para 7 dias.
+       * Expiração configurado para 7 dias.
        */
       const token = app.jwt.sign(
-        { id: user.id }, 
+        { id: user.id },
         { expiresIn: '7d' }
       );
 
-      return { 
+      return {
         token,
-        user: { id: user.id, email: user.email } 
+        user: { id: user.id, email: user.email }
       };
 
     } catch (error: any) {
