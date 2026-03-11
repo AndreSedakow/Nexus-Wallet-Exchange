@@ -3,7 +3,7 @@
 ## API REST de alta performance para gerenciamento de carteiras cripto, desenvolvida como parte do Teste Prático – Desenvolvedor Backend na Nexus. O Sistema simula componentes de uma **exchange financeira** com foco em:
 **Integridade de dados, Consistência contábil e Rastreabilidade de transações**.
 ## Base URL
-**API disponível em:** https://nexus-wallet-exchange.onrender.com
+**API disponível em:** https://nexus-wallet-exchange.onrender.com / https://nexus-wallet-exchange.onrender.com/docs
 
 ## Endpoints da API
 
